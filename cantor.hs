@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 module Cantor where
+import Data.Maybe (fromJust)
 --import qualified GHC.Real
 --import Stream
 
@@ -8,6 +9,13 @@ type Stream a = [a]
 
 class Countable a where
   enumerate :: Stream a
+
+--getIndex :: (Eq a, Countable a) => a -> Integer
+getIndex a = h 0 enumerate where
+  h i (a' : as)
+    | a == a' = i
+    | otherwise = h (succ i) as
+  h i [] = error "Error: element not in enumeration! You probably have a bad Countable instance definition"
 
 diagonalize :: (Stream a, Stream b) -> Stream (a, b)
 diagonalize (as, bs) = h as bs [] [] where
@@ -50,8 +58,16 @@ insertions a as = insertionsh a as [] where
 alternate (a : as) bs = a : alternate bs as
 alternate [] bs = bs
 
+--eithernate :: Stream a -> Stream b -> Stream (Either a b)
+eithernate as bs = alternate (fmap Left as) (fmap Right bs)
+
 deriveBoundedEnumerate :: (Bounded a, Enum a) => [a]
 deriveBoundedEnumerate = [minBound..maxBound]
+
+zplus :: (Enum n, Num n) => [n]
+zplus  = let h n = n : h (succ n) in h (succ 0)
+zminus :: (Enum n, Num n) => [n]
+zminus = let h n = n : h (pred n) in h (pred 0)
 
 instance Countable Bool where
   enumerate = deriveBoundedEnumerate
@@ -64,13 +80,13 @@ instance Countable Word where
 instance Countable Ordering where
   enumerate = deriveBoundedEnumerate
 instance Countable Int where
-  enumerate = [0..]
+  enumerate = 0 : alternate zplus zminus
 instance Countable Integer where
-  enumerate = [0..]
+  enumerate = 0 : alternate zplus zminus
 instance Countable a => Countable [a] where
   enumerate = permutations enumerate
 instance (Countable a, Countable b) => Countable (Either a b) where
-  enumerate = alternate (fmap Left enumerate) (fmap Right enumerate)
+  enumerate = eithernate enumerate enumerate
 instance Countable a => Countable (Maybe a) where
   enumerate = Nothing : fmap Just enumerate
 instance (Countable a, Countable b) => Countable (a, b) where
