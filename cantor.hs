@@ -1,7 +1,12 @@
 {-# LANGUAGE FlexibleInstances #-}
-
+-- Author: Colin McDonald
+-- Description:
+-- > Implements Cantor-style 1-to-1 correspondence between many classes
+-- > of types and the natural numbers (given by their index in enumerate).
 module Cantor where
-import Data.Maybe (fromJust)
+
+-- TODO: perhaps implement a faster fromIndex function,
+-- instead of doing nth on enumerate?
 
 -- If maxBounds is bounded, then treat any
 -- bounded type of greater size as unbounded;
