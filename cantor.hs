@@ -124,10 +124,10 @@ indexOf a (a' : as)
   | otherwise = succ (indexOf a as)
 
 -- Yields all possible lists with elements of a stream
+-- Follows Pascal's Triangle, where at row n and column k
+-- there are n `choose` k elements, drawn from sumlenh n k
 star :: Stream a -> Stream [a]
 star xs = map (map (\i -> nth i xs)) (concat [sumlen n | n <- [0..]])
---star xs = [] : map (\(y, ys) -> y : ys) (diagonalize (xs, star xs))
---star xs = map (\(y, ys) -> y : ys) (diagonalize (xs, [] : star xs))
 
 choose :: Integer -> Integer -> Integer
 n `choose` k = product [n, n-1 .. n - k + 1] `div` product [k, k-1 .. 1]
