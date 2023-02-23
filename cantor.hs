@@ -213,16 +213,6 @@ instance Countable Char where
   toIndex = deriveBoundedIndex
   size = deriveBoundedSize
 
-instance Countable Word where
-  enumerate = deriveBoundedEnumerate
-  toIndex = deriveBoundedIndex
-  size = deriveBoundedSize
-
-instance Countable Ordering where
-  enumerate = deriveBoundedEnumerate
-  toIndex = deriveBoundedIndex
-  size = deriveBoundedSize
-
 instance Countable Int where
   enumerate = 0 : alternate zplus zminus
   toIndex i
