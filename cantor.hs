@@ -2,9 +2,15 @@
 
 module Cantor where
 import Data.Maybe (fromJust)
---import Debug.Trace (trace)
---import qualified GHC.Real
---import Stream
+
+-- If maxBounds is bounded, then treat any
+-- bounded type of greater size as unbounded;
+-- if unbounded, don't change any behavior
+-- This makes types like Int and Char produce
+-- more reasonable numbers
+maxBounds :: Bounds a
+maxBounds = bounded (2 ^ 20)
+--maxBounds = unbounded
 
 type Stream a = [a]
 
@@ -118,7 +124,7 @@ sumlenh n 0 = []
 sumlenh n 1 = [[n]]
 sumlenh n k = concat [map ((:) i) (sumlenh (n - i) (k - 1)) | i <- [0..n]]
 
-indexOf a [] = undefined
+indexOf a [] = error "element not in list"
 indexOf a (a' : as)
   | a == a' = 0
   | otherwise = succ (indexOf a as)
@@ -142,23 +148,17 @@ unstar as =
   let is = [toIndex a | a <- as]
       s = sum is
       l = length' as
-      row = s + l -- Pascal's Triangle
+      row = s + l -- row of Pascal's Triangle
       col = l
       prev_in_rows = 2 ^ (row - 1) - 1 -- how many before this row
       prev_in_cols = sum [(row - 1) `choose` (col - 1) | col <- [1..l - 1]] -- how many before this column within this row
   in
-    --trace ("s = " ++ show s ++ ", l = " ++ show l ++ ", row = " ++ show row ++ ", col = " ++ show col ++ ", prev_in_rows = " ++ show prev_in_rows ++ ", prev_in_cols = " ++ show prev_in_cols) $
+    -- add one because unstar [] = 0
     1 + prev_in_rows + prev_in_cols + sumlenIndex s l is
---unstar [] = 0
---unstar (a : as) = 1 + undiagonalize (toIndex a) (unstar as)
---unstar [a] = 1 + toIndex a
 
 alternate :: [a] -> [a] -> [a]
 alternate (a : as) bs = a : alternate bs as
---alternate [] bs = bs
-
-eithernate :: Stream a -> Stream b -> Stream (Either a b)
-eithernate as bs = alternate (fmap Left as) (fmap Right bs)
+alternate [] bs = bs
 
 deriveBoundedEnumerate :: (Bounded a, Enum a) => [a]
 deriveBoundedEnumerate = [minBound..maxBound]
@@ -166,20 +166,21 @@ deriveBoundedEnumerate = [minBound..maxBound]
 deriveBoundedIndex :: Enum a => a -> Integer
 deriveBoundedIndex = toInteger . fromEnum
 
-indexAsBound :: Enum a => a -> Bounds a
-indexAsBound = bounded . succ . toInteger . fromEnum
-
 deriveBoundedSize :: (Bounded a, Enum a) => Bounds a
-deriveBoundedSize = indexAsBound maxBound -- - fromEnum minBound
+deriveBoundedSize = indexAsBound maxBound
+  where
+    indexAsBound :: Enum a => a -> Bounds a
+    indexAsBound a =
+      let i = succ (toInteger (fromEnum a)) in
+        case maxBounds of
+          Bounds (Just j) | (i >= j) -> unbounded
+          _ -> bounded i
 
 zplus :: (Enum n, Num n) => [n]
 zplus = [1, 2..] -- strictly positive integers
 zminus :: (Enum n, Num n) => [n]
 zminus = [-1, -2..] -- strictly negative integers
 
---instance (Enum a, Bounded a) => Countable a where
---  enumerate = deriveBoundedEnumerate
---  toIndex = fromEnum
 instance Countable Bool where
   enumerate = deriveBoundedEnumerate
   toIndex = deriveBoundedIndex
@@ -225,8 +226,8 @@ instance Countable Integer where
   size = unbounded
 
 instance Countable a => Countable [a] where
-  enumerate = star enumerate -- TODO: case for bounded a
-  toIndex = unstar -- TODO: case for bounded a
+  enumerate = ((\b -> if isBounded b then undefined else star enumerate) :: Countable a => Bounds a -> Stream [a]) size
+  toIndex = ((\b -> if isBounded b then undefined else unstar) :: Countable a => Bounds a -> [a] -> Integer) size
   size = unbounded
 
 instance (Countable a, Countable b) => Countable (Either a b) where
