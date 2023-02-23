@@ -87,25 +87,6 @@ permutations xs =
          acc' ++ (next (acc ++ acc')))
     (\ _ -> []) xs [[]]
 
--- With repetitions (array)
-permutationsWithRepetitions :: Stream a -> Stream [a]
-permutationsWithRepetitions xs =
-  [] : map (\(y, ys) -> y : ys) (diagonalize (xs, permutationsWithRepetitions xs))
-
-unpermuteWithRepetitions :: Countable a => [a] -> Integer
-unpermuteWithRepetitions [] = 0
-unpermuteWithRepetitions (a : as) = undiagonalize (toIndex a) (unpermuteWithRepetitions as)
-
-hotel :: Stream (Stream a) -> Stream [a]
-hotel [] = []
-hotel (as : bs) = map (\(a, b) -> a : b) (diagonalize (as, hotel bs))
-
--- Yields all possible lists with elements of a stream
---star :: Stream a -> Stream [a]
---star as = map (\(n, b) -> ) (diagonalize ([0..], as))
-
---unpermute :: Countable a => [a] 
-
 --Returns a list (of lists) of all the places we can insert an element into a list
 insertions :: a -> [a] -> [[a]]
 insertions a as = insertionsh a as [] where
@@ -113,6 +94,19 @@ insertions a as = insertionsh a as [] where
   insertionsh a [] bs' = [reverse (a : bs')]
   insertionsh a (b : bs) bs' =
     (reverse bs' ++ a : b : bs) : insertionsh a bs (b : bs')
+
+-- Yields all possible lists with elements of a stream
+star :: Stream a -> Stream [a]
+star xs = undefined
+--star xs = [] : map (\(y, ys) -> y : ys) (diagonalize (xs, star xs))
+--star xs = map (\(y, ys) -> y : ys) (diagonalize (xs, [] : star xs))
+
+unstar :: Countable a => [a] -> Integer
+unstar as = undefined
+--unstar [] = 0
+--unstar (a : as) = TODO
+--unstar [a] = 1 + toIndex a
+--unstar (a : as) = 1 + undiagonalize (toIndex a) (unstar as)
 
 alternate :: [a] -> [a] -> [a]
 alternate (a : as) bs = a : alternate bs as
@@ -183,8 +177,8 @@ instance Countable Integer where
   size = unbounded
 
 instance Countable a => Countable [a] where
-  enumerate = permutationsWithRepetitions enumerate
-  toIndex = unpermuteWithRepetitions
+  enumerate = star enumerate -- TODO: case for bounded a
+  toIndex = unstar -- TODO: case for bounded a
   size = unbounded
 
 instance (Countable a, Countable b) => Countable (Either a b) where
