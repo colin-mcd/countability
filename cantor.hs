@@ -2,6 +2,7 @@
 
 module Cantor where
 import Data.Maybe (fromJust)
+--import Debug.Trace (trace)
 --import qualified GHC.Real
 --import Stream
 
@@ -25,6 +26,15 @@ drop' n (_ : as) = drop' (pred n) as
 take' :: Integer -> [a] -> [a]
 take' 0 as = []
 take' n (a : as) = a : take' (pred n) as
+
+nth :: Integer -> [a] -> a
+nth 0 (a : as) = a
+nth n (a : as) = nth (pred n) as
+
+length' :: [a] -> Integer
+length' = h 0 where
+  h acc [] = acc
+  h acc (_ : as) = h (succ acc) as
 
 sublist :: Integer -> Integer -> [a] -> [a]
 sublist s e as = take' (e - s) (drop' s as)
@@ -95,18 +105,53 @@ insertions a as = insertionsh a as [] where
   insertionsh a (b : bs) bs' =
     (reverse bs' ++ a : b : bs) : insertionsh a bs (b : bs')
 
+-- Invariant: for each x in sumlen n, sum x + length x = n
+-- e.g. sumlen 3 = [[2], [0, 1], [1, 0], [0, 0, 0]]
+-- Returned list has 2^(n-1) elements
+sumlen :: Integer -> [[Integer]]
+sumlen n = concat [sumlenh (n - k) k | k <- [0..n]]
+--  where
+-- Fixes each sublist to have exactly k members
+sumlenh :: Integer -> Integer -> [[Integer]]
+sumlenh 0 k = [[0 | _ <- [0..k-1]]]
+sumlenh n 0 = []
+sumlenh n 1 = [[n]]
+sumlenh n k = concat [map ((:) i) (sumlenh (n - i) (k - 1)) | i <- [0..n]]
+
+indexOf a [] = undefined
+indexOf a (a' : as)
+  | a == a' = 0
+  | otherwise = succ (indexOf a as)
+
 -- Yields all possible lists with elements of a stream
 star :: Stream a -> Stream [a]
-star xs = undefined
+star xs = map (map (\i -> nth i xs)) (concat [sumlen n | n <- [0..]])
 --star xs = [] : map (\(y, ys) -> y : ys) (diagonalize (xs, star xs))
 --star xs = map (\(y, ys) -> y : ys) (diagonalize (xs, [] : star xs))
 
+choose :: Integer -> Integer -> Integer
+n `choose` k = product [n, n-1 .. n - k + 1] `div` product [k, k-1 .. 1]
+
+-- Returns the index that this is in sumlenh n k
+sumlenIndex :: Integer -> Integer -> [Integer] -> Integer
+sumlenIndex n k is = indexOf is (sumlenh n k) -- TODO: make more efficient (e.g. math-based)
+
 unstar :: Countable a => [a] -> Integer
-unstar as = undefined
+unstar [] = 0
+unstar as =
+  let is = [toIndex a | a <- as]
+      s = sum is
+      l = length' as
+      row = s + l -- Pascal's Triangle
+      col = l
+      prev_in_rows = 2 ^ (row - 1) - 1 -- how many before this row
+      prev_in_cols = sum [(row - 1) `choose` (col - 1) | col <- [1..l - 1]] -- how many before this column within this row
+  in
+    --trace ("s = " ++ show s ++ ", l = " ++ show l ++ ", row = " ++ show row ++ ", col = " ++ show col ++ ", prev_in_rows = " ++ show prev_in_rows ++ ", prev_in_cols = " ++ show prev_in_cols) $
+    1 + prev_in_rows + prev_in_cols + sumlenIndex s l is
 --unstar [] = 0
---unstar (a : as) = TODO
---unstar [a] = 1 + toIndex a
 --unstar (a : as) = 1 + undiagonalize (toIndex a) (unstar as)
+--unstar [a] = 1 + toIndex a
 
 alternate :: [a] -> [a] -> [a]
 alternate (a : as) bs = a : alternate bs as
@@ -161,6 +206,9 @@ instance Countable Ordering where
   size = deriveBoundedSize
 
 instance Countable Int where
+--  enumerate = [0..]
+--  toIndex i = toInteger i
+--  size = unbounded
   enumerate = 0 : alternate zplus zminus
   toIndex i
     | i <  0 = -2 * toInteger i
