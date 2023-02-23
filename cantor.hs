@@ -8,20 +8,22 @@ module Cantor where
 -- TODO: perhaps implement a faster fromIndex function,
 -- instead of doing nth on enumerate?
 
--- If maxBounds is bounded, then treat any
+-- If maxBounds is Just, then treat any
 -- bounded type of greater size as unbounded;
--- if unbounded, don't change any behavior
+-- if Nothing, don't change any behavior
 -- This makes types like Int and Char produce
 -- more reasonable numbers
-maxBounds :: Bounds a
-maxBounds = bounded (2 ^ 20)
---maxBounds = unbounded
+maxBounds :: Maybe Integer
+maxBounds = Just (2 ^ 20)
+--maxBounds = Nothing
 
 type Stream a = [a]
 
 newtype Bounds a = Bounds (Maybe Integer)
 unbounded = Bounds Nothing
-bounded = Bounds . Just
+bounded x = case maxBounds of
+  Just y | x >= y -> Bounds Nothing
+  _ -> Bounds (Just x)
 
 joinBounds :: (Integer -> Integer -> Integer) -> Bounds a -> Bounds b -> Bounds c
 joinBounds f (Bounds a) (Bounds b) = Bounds (pure f <*> a <*> b)
@@ -135,10 +137,18 @@ indexOf a (a' : as)
   | otherwise = succ (indexOf a as)
 
 -- Yields all possible lists with elements of a stream
--- Follows Pascal's Triangle, where at row n and column k
--- there are n `choose` k elements, drawn from sumlenh n k
-star :: Stream a -> Stream [a]
-star xs = map (map (\i -> nth i xs)) (concat [sumlen n | n <- [0..]])
+-- Follows Pascal's Triangle for unbounded types,
+-- where at row n and column k there are n `choose` k elements,
+-- drawn from sumlenh n k.
+-- For bounded types, simply enumerates all the 0-length lists,
+-- then 1-length lists, 2-length lists, etc.
+star :: Bounds a -> Stream a -> Stream [a]
+star (Bounds Nothing) xs = map (map (\i -> nth i xs)) (concat [sumlen n | n <- [0..]])
+star b@(Bounds (Just _)) xs = h 0 where
+  alllen :: Integer -> Stream a -> [[a]]
+  alllen 0 xs = [[]]
+  alllen n xs = concat [map ((:) x) (alllen (pred n) xs) | x <- xs]
+  h n = alllen n xs ++ h (succ n)
 
 choose :: Integer -> Integer -> Integer
 n `choose` k = product [n, n-1 .. n - k + 1] `div` product [k, k-1 .. 1]
@@ -147,9 +157,9 @@ n `choose` k = product [n, n-1 .. n - k + 1] `div` product [k, k-1 .. 1]
 sumlenIndex :: Integer -> Integer -> [Integer] -> Integer
 sumlenIndex n k is = indexOf is (sumlenh n k) -- TODO: make more efficient (e.g. math-based)
 
-unstar :: Countable a => [a] -> Integer
-unstar [] = 0
-unstar as =
+unstar :: Countable a => Bounds a -> [a] -> Integer
+unstar b [] = 0
+unstar (Bounds Nothing) as =
   let is = [toIndex a | a <- as]
       s = sum is
       l = length' as
@@ -160,6 +170,12 @@ unstar as =
   in
     -- add one because unstar [] = 0
     1 + prev_in_rows + prev_in_cols + sumlenIndex s l is
+unstar (Bounds (Just i)) as =
+  let l = length as
+      prev = if i == 2 then (2 ^ l - 1) else ((i ^ l) `div` (i - 1))
+      (this, _) = foldr (\a (c, p) -> (toIndex a * p + c, p * i)) (0, 1) as
+  in
+    prev + this
 
 alternate :: [a] -> [a] -> [a]
 alternate (a : as) bs = a : alternate bs as
@@ -175,11 +191,7 @@ deriveBoundedSize :: (Bounded a, Enum a) => Bounds a
 deriveBoundedSize = indexAsBound maxBound
   where
     indexAsBound :: Enum a => a -> Bounds a
-    indexAsBound a =
-      let i = succ (toInteger (fromEnum a)) in
-        case maxBounds of
-          Bounds (Just j) | (i >= j) -> unbounded
-          _ -> bounded i
+    indexAsBound a = bounded (succ (toInteger (fromEnum a)))
 
 zplus :: (Enum n, Num n) => [n]
 zplus = [1, 2..] -- strictly positive integers
@@ -212,9 +224,6 @@ instance Countable Ordering where
   size = deriveBoundedSize
 
 instance Countable Int where
---  enumerate = [0..]
---  toIndex i = toInteger i
---  size = unbounded
   enumerate = 0 : alternate zplus zminus
   toIndex i
     | i <  0 = -2 * toInteger i
@@ -231,8 +240,8 @@ instance Countable Integer where
   size = unbounded
 
 instance Countable a => Countable [a] where
-  enumerate = ((\b -> if isBounded b then undefined else star enumerate) :: Countable a => Bounds a -> Stream [a]) size
-  toIndex = ((\b -> if isBounded b then undefined else unstar) :: Countable a => Bounds a -> [a] -> Integer) size
+  enumerate = star size enumerate
+  toIndex = unstar size
   size = unbounded
 
 instance (Countable a, Countable b) => Countable (Either a b) where
