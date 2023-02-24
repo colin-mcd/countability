@@ -11,8 +11,8 @@ module Cantor where
 -- If maxBounds is Just, then treat any
 -- bounded type of greater size as unbounded;
 -- if Nothing, don't change any behavior
--- This makes types like Int and Char produce
--- more reasonable numbers
+-- This makes types like Int and Char behave
+-- more reasonably
 maxBounds :: Maybe Integer
 maxBounds = Just (2 ^ 20)
 --maxBounds = Nothing
@@ -67,13 +67,6 @@ class Countable a where
   enumerateTo a = take' (toIndex a) enumerate
   enumerateFromTo a b = sublist (toIndex a) (toIndex b + 1) enumerate
 
--- getIndex :: (Eq a, Countable a) => a -> Integer
--- getIndex a = h 0 enumerate where
---   h i (a' : as)
---    | a == a' = i
---    | otherwise = h (succ i) as
---   h i [] = error "Error: element not in enumeration! You probably have a bad Countable instance definition"
-
 diagonalize :: (Stream a, Stream b) -> Stream (a, b)
 diagonalize (as, bs) = h as bs [] [] where
   --h :: Stream a -> Stream b -> [a] -> [b] -> Stream (a, b)
@@ -123,13 +116,13 @@ insertions a as = insertionsh a as [] where
 -- Returned list has 2^(n-1) elements
 sumlen :: Integer -> [[Integer]]
 sumlen n = concat [sumlenh (n - k) k | k <- [0..n]]
---  where
--- Fixes each sublist to have exactly k members
-sumlenh :: Integer -> Integer -> [[Integer]]
-sumlenh 0 k = [[0 | _ <- [0..k-1]]]
-sumlenh n 0 = []
-sumlenh n 1 = [[n]]
-sumlenh n k = concat [map ((:) i) (sumlenh (n - i) (k - 1)) | i <- [0..n]]
+  where
+    -- Fixes each sublist to have exactly k members
+    sumlenh :: Integer -> Integer -> [[Integer]]
+    sumlenh 0 k = [[0 | _ <- [0..k-1]]]
+    sumlenh n 0 = []
+    sumlenh n 1 = [[n]]
+    sumlenh n k = concat [map ((:) i) (sumlenh (n - i) (k - 1)) | i <- [0..n]]
 
 indexOf a [] = error "element not in list"
 indexOf a (a' : as)
@@ -153,9 +146,22 @@ star b@(Bounds (Just _)) xs = h 0 where
 choose :: Integer -> Integer -> Integer
 n `choose` k = product [n, n-1 .. n - k + 1] `div` product [k, k-1 .. 1]
 
--- Returns the index that this is in sumlenh n k
-sumlenIndex :: Integer -> Integer -> [Integer] -> Integer
-sumlenIndex n k is = indexOf is (sumlenh n k) -- TODO: make more efficient (e.g. math-based)
+-- Returns the index that list "is" is in sumlenh (sum is) (length is)
+sumlenIndex :: [Integer] -> Integer
+sumlenIndex is = h (sum is) (length' is) is
+  where
+    h n k [] = 0
+    h n k (i : is) =
+      sum [numlen (n - j) (k - 1) | j <- [0..i-1]] + h (n - i) (k - 1) is
+
+    -- Quickly computes length (sumlenh n k)
+    numlen :: Integer -> Integer -> Integer
+    numlen n k
+      | n == 0 = 1
+      | n == 1 = k
+      | n == 2 = (k * (k + 1)) `div` 2
+      | otherwise = (numlen (n - 1) k * (n + k - 1)) `div` n
+
 
 unstar :: Countable a => Bounds a -> [a] -> Integer
 unstar b [] = 0
@@ -169,7 +175,7 @@ unstar (Bounds Nothing) as =
       prev_in_cols = sum [(row - 1) `choose` (col - 1) | col <- [1..l - 1]] -- how many before this column within this row
   in
     -- add one because unstar [] = 0
-    1 + prev_in_rows + prev_in_cols + sumlenIndex s l is
+    1 + prev_in_rows + prev_in_cols + sumlenIndex is
 unstar (Bounds (Just i)) as =
   let l = length as
       prev = if i == 2 then (2 ^ l - 1) else ((i ^ l) `div` (i - 1))
