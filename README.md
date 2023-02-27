@@ -43,7 +43,7 @@ Going the other way, we get _huge_ numbers when we use `String` (i.e. `[Char]`) 
 > toIndex "dog"
 133499189745056880149688856635597007162669032647290798121690100488888732861290034376435130460514
 ```
-Appears after about $2^{\mathrm{length}(dog) + \mathrm{toIndex}(d) + \mathrm{toIndex}(o) + \mathrm{toIndex}(g) - 1} = 2^{3 + 100 + 111 + 103 - 1} = 2^{316}$ other strings. Impressively, though, that takes only a fraction of a second to compute. However,
+Appears after about $2^{\mathrm{length}(dog) + \mathrm{toIndex}(d) + \mathrm{toIndex}(o) + \mathrm{toIndex}(g) - 1} = 2^{3 + 100 + 111 + 103 - 1} = 2^{316}$ other strings. Impressively, though, that takes only a fraction of a second to compute. Further, computation times seem to scale at least semi-linearly
 ```haskell
 > toIndex "doge"
 676921312041214565326761275425557544784286395355423968547480366360991530225982818124993751490268451683933401113623918910450890
