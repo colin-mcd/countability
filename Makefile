@@ -1,7 +1,7 @@
 all: count
 
-count: main.hs cantor.hs
-	ghc main.hs cantor.hs -o count
+count: Main.hs Cantor.hs
+	ghc Main.hs Cantor.hs -o count
 
 .PHONY: clean
 clean:
