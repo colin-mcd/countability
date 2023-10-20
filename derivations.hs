@@ -4,33 +4,38 @@ import Cantor
 -- Instances for bounded types are super easy:
 instance Countable Word where
   enumerate = deriveBoundedEnumerate
-  toIndex = deriveBoundedIndex
+  toIndex = deriveBoundedToIndex
+  fromIndex = deriveBoundedFromIndex
   size = deriveBoundedSize
 
 instance Countable Ordering where
   enumerate = deriveBoundedEnumerate
-  toIndex = deriveBoundedIndex
+  toIndex = deriveBoundedToIndex
+  fromIndex = deriveBoundedFromIndex
   size = deriveBoundedSize
 
 data Color = Red | Orange | Yellow | Green | Blue | Indigo | Violet deriving (Bounded, Enum)
 instance Countable Color where
   enumerate = deriveBoundedEnumerate
-  toIndex = deriveBoundedIndex
+  toIndex = deriveBoundedToIndex
+  fromIndex = deriveBoundedFromIndex
   size = deriveBoundedSize
 
 data Size = Small | Medium | Large deriving (Bounded, Enum)
 instance Countable Size where
   enumerate = deriveBoundedEnumerate
-  toIndex = deriveBoundedIndex
+  toIndex = deriveBoundedToIndex
+  fromIndex = deriveBoundedFromIndex
   size = deriveBoundedSize
 
 -- Composite bounded datatype: map TShirt c s to the product (c, s),
 -- using builtin instances for product types
 data TShirt = TShirt Color Size
 instance Countable TShirt where
-  enumerate = map (\(c, s) -> TShirt c s) enumerate
+  enumerate = map (uncurry TShirt) enumerate
   toIndex (TShirt c s) = toIndex (c, s)
-  size = let Bounds b = size :: Bounds (Color, Size) in Bounds b
+  fromIndex = uncurry TShirt . fromIndex
+  size = let Bounded b = size :: Bounds (Color, Size) in Bounded b
 
 
 -- Recursive types seem a little more involved,
@@ -48,7 +53,8 @@ unfoldBinTree (Node l r) = Right (l, r)
 instance Countable a => Countable (BinTree a) where
   enumerate = map foldBinTree enumerate
   toIndex = toIndex . unfoldBinTree
-  size = unbounded
+  fromIndex = foldBinTree . fromIndex
+  size = Unbounded
 
 data Regex =
     ReEmpty
@@ -85,4 +91,5 @@ unfoldRegex (ReStar r) = Right (Right (Right (Right (Right r))))
 instance Countable Regex where
   enumerate = map foldRegex enumerate
   toIndex = toIndex . unfoldRegex
-  size = unbounded
+  fromIndex = foldRegex . fromIndex
+  size = Unbounded

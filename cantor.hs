@@ -3,6 +3,8 @@
 -- Description:
 -- > Implements Cantor-style 1-to-1 correspondence between many classes
 -- > of types and the natural numbers (given by their index in enumerate).
+-- Known bugs:
+-- 1. fromIndex on numbers greater than E+308 (max double size?) seem hang the program
 module Cantor where
 import Debug.Trace (trace)
 
@@ -195,8 +197,12 @@ starx Unbounded i =
           s = sl - len
       in
         nthsumlen s len i''
-        --error (show (concat [label ++ " = " ++ show value ++ ", " | (label, value) <- zip ["sl", "row", "i'", "length", "sum", "i''"] [sl, row, i', len, s, i'']]))
-starx (Bounded m) i = undefined
+starx (Bounded m) i =
+  let k = floor (log (fromInteger (i * (m - 1) + 1)) / log (fromInteger m)) -- number of elements
+      x' = (m ^ (k + 0)) `div` (m - 1) -- number of lists of length at most k-1
+      x = i - x' + 1 -- index within lists of length k
+  in
+    [(x `div` (m ^ (k - j - 1))) `mod` m | j <- [0..k-1]]
 
 -- Yields all possible lists with elements of a stream.
 -- Each Integer is an index into that stream.
@@ -260,6 +266,10 @@ zplus = [1, 2..] -- strictly positive integers
 zminus :: (Enum n, Num n) => [n]
 zminus = [-1, -2..] -- strictly negative integers
 
+-- 1-to-1 mapping from a countable type to another countable type
+map1to1 :: (Countable a, Countable b) => a -> b
+map1to1 = fromIndex . toIndex
+
 instance Countable Bool where
   enumerate = deriveBoundedEnumerate
   toIndex = deriveBoundedToIndex
@@ -303,6 +313,9 @@ instance Countable Integer where
   size = Unbounded
 
 instance Countable a => Countable [a] where
+  --enumerate = map (maybe [] (uncurry (:))) enumerate
+  --toIndex = (\as -> toIndex (case as of a : as -> Just (a, as); [] -> Nothing)) :: Countable a => [a] -> Integer
+  --fromIndex i = maybe [] (uncurry (:)) (fromIndex i)
   enumerate = ((map (map fromIndex) . star) :: Countable a => Bounds a -> Stream [a]) size
   toIndex = unstar size
   fromIndex i = ((\b -> map fromIndex (starx b i)) :: Countable a => Bounds a -> [a]) size
